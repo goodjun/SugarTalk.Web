@@ -1,9 +1,7 @@
-interface IEnv {
-  apiBaseUrl: string;
-}
+import { Env as IEnv } from "./env.type";
 
-const Env: IEnv = {
-  apiBaseUrl: "/api",
-};
+const config = require("./config.json");
+
+const Env: IEnv = config as IEnv;
 
 export default Env;

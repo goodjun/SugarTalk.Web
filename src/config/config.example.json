@@ -1,0 +1,6 @@
+{
+  "apiBaseUrl": "/api",
+  "googleClientId": "",
+  "googleClientSecret": "",
+  "googleRedirectUri": ""
+}
