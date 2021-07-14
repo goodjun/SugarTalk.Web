@@ -22,6 +22,7 @@ const JoinMeeting = () => {
   }, [idToken, setValue]);
 
   const onSubmit = (data: any) => {
+    console.log(data);
     history.push({
       pathname: "/meeting",
       search: queryString.stringify(data),
@@ -59,6 +60,18 @@ const JoinMeeting = () => {
           <span style={styles.formError}>
             {errors.token && "google token is required"}
           </span>
+        </div>
+        <div style={styles.formItem}>
+          <label>
+            <input type="checkbox" {...register("video")} />
+            video
+          </label>
+        </div>
+        <div style={styles.formItem}>
+          <label>
+            <input type="checkbox" {...register("audio")} />
+            audio
+          </label>
         </div>
         <div style={styles.formItem}>
           <button type="submit">enter room</button>

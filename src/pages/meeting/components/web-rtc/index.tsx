@@ -2,78 +2,85 @@ import { HubConnection } from "@microsoft/signalr";
 import React from "react";
 import { MeetingContext } from "../../context";
 import * as styles from "./index.styles";
+import * as sdpTransform from "sdp-transform";
 
 interface IWebRTC {
   id: string;
   userName: string;
   isSelf: boolean;
   serverRef: React.MutableRefObject<HubConnection | undefined>;
+  videoStatus: boolean;
+  audioStatus: boolean;
 }
 
 export const WebRTC = (props: IWebRTC) => {
-  const { id, userName = "unknown", isSelf, serverRef } = props;
+  const {
+    id,
+    userName = "unknown",
+    isSelf,
+    serverRef,
+    videoStatus,
+    audioStatus,
+  } = props;
 
   const videoRef = React.useRef<any>();
 
-  const rtcPeerRef = React.useRef<RTCPeerConnection | null>(null);
+  const audioRef = React.useRef<any>();
+
+  const rtcPeerRef = React.useRef<RTCPeerConnection>(new RTCPeerConnection());
 
   const { video, audio, hasVideo, hasAudio } = React.useContext(MeetingContext);
 
+  // 创建发送端
   const createPeerSendonly = async () => {
-    const rtcPeer = new RTCPeerConnection();
-
-    rtcPeer.addEventListener("icecandidate", (candidate) => {
+    rtcPeerRef.current.addEventListener("icecandidate", (candidate) => {
       serverRef?.current?.invoke("ProcessCandidateAsync", id, candidate);
     });
 
-    const localStream = await navigator.mediaDevices.getUserMedia({
-      video: true && hasVideo,
-      audio: true && hasAudio,
-    });
+    const option = {
+      video: videoStatus,
+      audio: audioStatus,
+    };
+
+    console.log(option);
+
+    const localStream = await navigator.mediaDevices.getUserMedia(option);
 
     videoRef.current.srcObject = localStream;
 
     localStream.getTracks().forEach((track: MediaStreamTrack) => {
-      rtcPeer.addTrack(track, localStream);
-      if (track.kind === "audio") {
-        track.enabled = audio;
-      } else if (track.kind === "video") {
-        track.enabled = video;
-      }
+      rtcPeerRef.current.addTrack(track, localStream);
     });
 
-    const offer = await rtcPeer.createOffer({
+    const offer = await rtcPeerRef.current.createOffer({
       offerToReceiveAudio: false,
       offerToReceiveVideo: false,
     });
 
-    rtcPeer.setLocalDescription(offer);
-    serverRef?.current?.invoke("ProcessOfferAsync", id, offer.sdp);
+    rtcPeerRef.current.setLocalDescription(offer);
 
-    rtcPeerRef.current = rtcPeer;
+    serverRef?.current?.invoke("ProcessOfferAsync", id, offer.sdp);
   };
 
+  // 创建接受端
   const createPeerRecvonly = async () => {
-    const rtcPeer = new RTCPeerConnection();
-
-    rtcPeer.addEventListener("addstream", (e: any) => {
+    rtcPeerRef.current.addEventListener("addstream", (e: any) => {
       videoRef.current.srcObject = e.stream;
+      audioRef.current.srcObject = e.stream;
     });
 
-    rtcPeer.addEventListener("icecandidate", (candidate) => {
+    rtcPeerRef.current.addEventListener("icecandidate", (candidate) => {
       serverRef?.current?.invoke("ProcessCandidateAsync", id, candidate);
     });
 
-    const offer = await rtcPeer.createOffer({
+    const offer = await rtcPeerRef.current.createOffer({
       offerToReceiveAudio: true,
       offerToReceiveVideo: true,
     });
 
+    rtcPeerRef.current.setLocalDescription(offer);
+
     serverRef?.current?.invoke("ProcessOfferAsync", id, offer.sdp);
-
-    rtcPeer.setLocalDescription(offer);
-
-    rtcPeerRef.current = rtcPeer;
   };
 
   React.useEffect(() => {
@@ -85,7 +92,9 @@ export const WebRTC = (props: IWebRTC) => {
 
     serverRef?.current?.on("ProcessAnswer", (connectionId, answerSDP) => {
       if (id === connectionId) {
-        rtcPeerRef?.current?.setRemoteDescription(
+        console.log("ProcessAnswer", id, isSelf);
+        console.log(sdpTransform.parse(answerSDP));
+        rtcPeerRef.current.setRemoteDescription(
           new RTCSessionDescription({ type: "answer", sdp: answerSDP })
         );
       }
@@ -94,7 +103,7 @@ export const WebRTC = (props: IWebRTC) => {
     serverRef?.current?.on("AddCandidate", (connectionId, candidate) => {
       if (id === connectionId) {
         const objCandidate = JSON.parse(candidate);
-        rtcPeerRef?.current?.addIceCandidate(objCandidate);
+        rtcPeerRef.current.addIceCandidate(objCandidate);
       }
     });
   }, []);
@@ -129,7 +138,17 @@ export const WebRTC = (props: IWebRTC) => {
         height="250"
         style={styles.video}
         muted={isSelf}
+        onError={() => console.log("error")}
       />
+      {!isSelf && (
+        <audio
+          ref={audioRef}
+          autoPlay
+          playsInline
+          style={styles.video}
+          muted={isSelf}
+        />
+      )}
       <div style={styles.userName}>{userName}</div>
     </div>
   );
