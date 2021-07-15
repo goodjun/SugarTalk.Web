@@ -9,19 +9,10 @@ interface IWebRTC {
   userName: string;
   isSelf: boolean;
   serverRef: React.MutableRefObject<HubConnection | undefined>;
-  videoStatus: boolean;
-  audioStatus: boolean;
 }
 
 export const WebRTC = (props: IWebRTC) => {
-  const {
-    id,
-    userName = "unknown",
-    isSelf,
-    serverRef,
-    videoStatus,
-    audioStatus,
-  } = props;
+  const { id, userName = "unknown", isSelf, serverRef } = props;
 
   const videoRef = React.useRef<any>();
 
@@ -37,14 +28,10 @@ export const WebRTC = (props: IWebRTC) => {
       serverRef?.current?.invoke("ProcessCandidateAsync", id, candidate);
     });
 
-    const option = {
-      video: videoStatus,
-      audio: audioStatus,
-    };
-
-    console.log(option);
-
-    const localStream = await navigator.mediaDevices.getUserMedia(option);
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      video: hasVideo,
+      audio: hasAudio,
+    });
 
     videoRef.current.srcObject = localStream;
 
@@ -138,7 +125,6 @@ export const WebRTC = (props: IWebRTC) => {
         height="250"
         style={styles.video}
         muted={isSelf}
-        onError={() => console.log("error")}
       />
       {!isSelf && (
         <audio

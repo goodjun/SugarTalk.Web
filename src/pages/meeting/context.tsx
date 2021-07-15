@@ -1,5 +1,14 @@
 import React from "react";
-import { checkMediaAccess } from "../../utils/media";
+import { useLocation } from "react-router-dom";
+import queryString from "query-string";
+
+interface IMeetingInfo {
+  username: string;
+  meetingNumber: string;
+  token: string;
+  video: boolean;
+  audio: boolean;
+}
 
 interface IMeetingContextValue {
   video: boolean;
@@ -24,15 +33,16 @@ export const MeetingProvider: React.FC = ({ children }) => {
   const [audio, setAudio] = React.useState<boolean>(true);
   const [hasVideo, setHasVideo] = React.useState<boolean>(true);
   const [hasAudio, setHasAudio] = React.useState<boolean>(true);
+  const location = useLocation();
 
   React.useEffect(() => {
-    const initMediaAccess = async () => {
-      const mediaAccessResult = await checkMediaAccess();
-      setHasVideo(mediaAccessResult.video);
-      setHasAudio(mediaAccessResult.audio);
-    };
+    const meetingInfo = queryString.parse(location.search, {
+      parseBooleans: true,
+      parseNumbers: true,
+    }) as any as IMeetingInfo;
 
-    initMediaAccess();
+    setHasVideo(meetingInfo.video);
+    setHasAudio(meetingInfo.audio);
   }, []);
 
   return (

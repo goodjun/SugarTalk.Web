@@ -33,10 +33,6 @@ const MeetingPage = () => {
 
   const [userSessions, setUserSessions] = React.useState<IUserSession[]>([]);
 
-  const [videoStatus, setVideoStatus] = React.useState<any>(true);
-
-  const [audioStatus, setAudioStatus] = React.useState<any>(true);
-
   const createUserSession = (user: IUser, isSelf: boolean) => {
     const userSession: IUserSession = {
       id: user.id,
@@ -59,14 +55,12 @@ const MeetingPage = () => {
   };
 
   React.useEffect(() => {
-    const meetingInfo = queryString.parse(
-      location.search
-    ) as any as IMeetingInfo;
+    const meetingInfo = queryString.parse(location.search, {
+      parseBooleans: true,
+      parseNumbers: true,
+    }) as any as IMeetingInfo;
 
     const url = `${Env.apiBaseUrl}/meetingHub?username=${meetingInfo.username}&meetingNumber=${meetingInfo.meetingNumber}`;
-
-    setVideoStatus(meetingInfo.video);
-    setAudioStatus(meetingInfo.audio);
 
     serverRef.current = new HubConnectionBuilder()
       .withUrl(url, { accessTokenFactory: () => meetingInfo.token })
@@ -119,8 +113,6 @@ const MeetingPage = () => {
               id={userSession.id}
               userName={userSession.userName}
               isSelf={userSession.isSelf}
-              videoStatus={videoStatus}
-              audioStatus={audioStatus}
             />
           );
         })}
