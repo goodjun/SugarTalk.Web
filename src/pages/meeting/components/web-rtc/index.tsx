@@ -35,6 +35,31 @@ export const WebRTC = (props: IWebRTC) => {
 
     videoRef.current.srcObject = localStream;
 
+    // audio meter
+    const audioContext = new AudioContext({ latencyHint: "balanced" });
+
+    const mediaStreamSource = audioContext.createMediaStreamSource(localStream);
+
+    const analyser = audioContext.createAnalyser();
+
+    analyser.fftSize = 128;
+
+    const bufferLength = analyser.frequencyBinCount;
+
+    let dataArray = new Uint8Array(bufferLength);
+
+    mediaStreamSource.connect(analyser);
+
+    setInterval(() => {
+      analyser.getByteFrequencyData(dataArray);
+
+      let volume = 0;
+
+      volume = dataArray[0] / 2;
+
+      console.log("volume: ", volume);
+    }, 500);
+
     localStream.getTracks().forEach((track: MediaStreamTrack) => {
       rtcPeerRef.current.addTrack(track, localStream);
     });
