@@ -2,8 +2,14 @@ import React from "react";
 import { MeetingContext } from "../../context";
 import * as styles from "./index.styles";
 
-export const HeaderTools = () => {
+interface IHeaderToolsProps {
+  onClose: () => void;
+}
+
+export const HeaderTools = (props: IHeaderToolsProps) => {
   const { video, setVideo, audio, setAudio } = React.useContext(MeetingContext);
+
+  const { onClose } = props;
 
   return (
     <div style={styles.headerToolContainer}>
@@ -12,6 +18,9 @@ export const HeaderTools = () => {
       </button>
       <button style={styles.button} onClick={() => setVideo(!video)}>
         {video ? "stop video" : "start video"}
+      </button>
+      <button style={styles.button} onClick={() => onClose()}>
+        close
       </button>
     </div>
   );

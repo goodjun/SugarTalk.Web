@@ -3,6 +3,7 @@ import React from "react";
 import { MeetingContext } from "../../context";
 import * as styles from "./index.styles";
 import * as sdpTransform from "sdp-transform";
+import { dd } from "../../../../utils/debug";
 
 interface IWebRTC {
   id: string;
@@ -11,7 +12,13 @@ interface IWebRTC {
   serverRef: React.MutableRefObject<HubConnection | undefined>;
 }
 
-export const WebRTC = (props: IWebRTC) => {
+export interface IWebRTCRef {
+  onProcessAnswer: (connectionId: string, answerSDP: string) => void;
+  onAddCandidate: (connectionId: string, candidate: string) => void;
+  onNewOfferCreated: (connectionId: string, answerSDP: string) => void;
+}
+
+export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
   const { id, userName = "unknown", isSelf, serverRef } = props;
 
   const videoRef = React.useRef<any>();
@@ -21,6 +28,41 @@ export const WebRTC = (props: IWebRTC) => {
   const rtcPeerConnection = React.useRef<RTCPeerConnection>();
 
   const { video, audio, hasVideo, hasAudio } = React.useContext(MeetingContext);
+
+  const onProcessAnswer = (connectionId: string, answerSDP: string) => {
+    dd(
+      "onProcessAnswer",
+      connectionId,
+      sdpTransform.parse(answerSDP).media[0].direction
+    );
+
+    rtcPeerConnection?.current?.setRemoteDescription(
+      new RTCSessionDescription({ type: "answer", sdp: answerSDP })
+    );
+  };
+
+  const onAddCandidate = (connectionId: string, candidate: string) => {
+    const objCandidate = JSON.parse(candidate);
+    rtcPeerConnection?.current?.addIceCandidate(objCandidate);
+  };
+
+  const onNewOfferCreated = (connectionId: string, answerSDP: string) => {
+    if (!isSelf) {
+      dd(
+        "onNewOfferCreated",
+        connectionId,
+        sdpTransform.parse(answerSDP).media[0].direction
+      );
+
+      createPeerRecvonly();
+    }
+  };
+
+  React.useImperativeHandle(ref, () => ({
+    onProcessAnswer,
+    onAddCandidate,
+    onNewOfferCreated,
+  }));
 
   const recreatePeerConnection = async () => {
     if (videoRef.current?.srcObject) {
@@ -60,8 +102,6 @@ export const WebRTC = (props: IWebRTC) => {
 
   // 创建发送端
   const createPeerSendonly = async () => {
-    console.log("createPeerSendonly", id);
-
     recreatePeerConnection().then((peer) => {
       peer.current?.addEventListener("icecandidate", (candidate) => {
         serverRef?.current?.invoke("ProcessCandidateAsync", id, candidate);
@@ -71,8 +111,6 @@ export const WebRTC = (props: IWebRTC) => {
 
   // 创建接受端
   const createPeerRecvonly = async () => {
-    console.log("createPeerRecvonly", id);
-
     const peer = new RTCPeerConnection();
 
     peer.addEventListener("addstream", (e: any) => {
@@ -102,48 +140,7 @@ export const WebRTC = (props: IWebRTC) => {
     } else {
       createPeerRecvonly();
     }
-
-    serverRef?.current?.on("ProcessAnswer", (connectionId, answerSDP) => {
-      if (id === connectionId) {
-        rtcPeerConnection?.current?.setRemoteDescription(
-          new RTCSessionDescription({ type: "answer", sdp: answerSDP })
-        );
-      }
-    });
-
-    serverRef?.current?.on("AddCandidate", (connectionId, candidate) => {
-      if (id === connectionId) {
-        const objCandidate = JSON.parse(candidate);
-        rtcPeerConnection?.current?.addIceCandidate(objCandidate);
-      }
-    });
-
-    serverRef?.current?.on("NewOfferCreated", (connectionId, answerSDP) => {
-      if (id === connectionId && !isSelf) {
-        createPeerRecvonly();
-      }
-    });
   }, []);
-
-  React.useEffect(() => {
-    if (isSelf && videoRef.current?.srcObject) {
-      videoRef.current.srcObject
-        .getAudioTracks()
-        .forEach((track: MediaStreamTrack) => {
-          track.enabled = audio;
-        });
-    }
-  }, [audio]);
-
-  React.useEffect(() => {
-    if (isSelf && videoRef.current?.srcObject) {
-      videoRef.current.srcObject
-        .getVideoTracks()
-        .forEach((track: MediaStreamTrack) => {
-          track.enabled = video;
-        });
-    }
-  }, [video]);
 
   return (
     <div style={styles.videoContainer}>
@@ -170,4 +167,4 @@ export const WebRTC = (props: IWebRTC) => {
       </div>
     </div>
   );
-};
+});

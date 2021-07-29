@@ -2,10 +2,12 @@ import React from "react";
 import { useLocation } from "react-router-dom";
 import queryString from "query-string";
 import { HubConnection, HubConnectionBuilder } from "@microsoft/signalr";
-import { WebRTC } from "./components/web-rtc";
+import { IWebRTCRef, WebRTC } from "./components/web-rtc";
 import { HeaderTools } from "./components/header-tools";
 import { MeetingProvider } from "./context";
 import Env from "../../config/env";
+import { dd } from "../../utils/debug";
+import * as sdpTransform from "sdp-transform";
 
 interface IMeetingInfo {
   username: string;
@@ -32,6 +34,8 @@ const MeetingPage = () => {
   const serverRef = React.useRef<HubConnection>();
 
   const [userSessions, setUserSessions] = React.useState<IUserSession[]>([]);
+
+  const userSessionsRef = React.useRef<Record<string, IWebRTCRef>>({});
 
   const createUserSession = (user: IUser, isSelf: boolean) => {
     const userSession: IUserSession = {
@@ -90,6 +94,31 @@ const MeetingPage = () => {
       removeUserSession(connectionId);
     });
 
+    serverRef.current.on("ProcessAnswer", (connectionId, answerSDP) => {
+      // dd("ProcessAnswer", connectionId);
+      // console.log(sdpTransform.parse(answerSDP));
+      userSessionsRef.current[connectionId].onProcessAnswer(
+        connectionId,
+        answerSDP
+      );
+    });
+
+    serverRef?.current.on("AddCandidate", (connectionId, candidate) => {
+      userSessionsRef.current[connectionId].onAddCandidate(
+        connectionId,
+        candidate
+      );
+    });
+
+    serverRef?.current.on("NewOfferCreated", (connectionId, answerSDP) => {
+      // dd("NewOfferCreated", connectionId);
+      // console.log(sdpTransform.parse(answerSDP));
+      userSessionsRef.current[connectionId].onNewOfferCreated(
+        connectionId,
+        answerSDP
+      );
+    });
+
     serverRef.current.start().catch((error?: any) => {
       if (error?.statusCode === 401) {
         alert("Unauthorized.");
@@ -103,11 +132,14 @@ const MeetingPage = () => {
 
   return (
     <div>
-      <HeaderTools />
+      <HeaderTools onClose={() => serverRef.current?.stop()} />
       <div>
         {userSessions.map((userSession, key) => {
           return (
             <WebRTC
+              ref={(ref: IWebRTCRef) => {
+                userSessionsRef.current[userSession.id] = ref;
+              }}
               key={key.toString()}
               serverRef={serverRef}
               id={userSession.id}
