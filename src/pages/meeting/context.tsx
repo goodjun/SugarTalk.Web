@@ -15,22 +15,27 @@ interface IMeetingContextValue {
   setVideo: React.Dispatch<React.SetStateAction<boolean>>;
   audio: boolean;
   setAudio: React.Dispatch<React.SetStateAction<boolean>>;
+  screen: boolean;
+  setScreen: React.Dispatch<React.SetStateAction<boolean>>;
   hasVideo: boolean;
   hasAudio: boolean;
 }
 
 export const MeetingContext = React.createContext<IMeetingContextValue>({
-  video: true,
+  video: false,
   setVideo: () => {},
   audio: true,
   setAudio: () => {},
+  screen: false,
+  setScreen: () => {},
   hasVideo: true,
   hasAudio: true,
 });
 
 export const MeetingProvider: React.FC = ({ children }) => {
-  const [video, setVideo] = React.useState<boolean>(true);
+  const [video, setVideo] = React.useState<boolean>(false);
   const [audio, setAudio] = React.useState<boolean>(true);
+  const [screen, setScreen] = React.useState<boolean>(false);
   const [hasVideo, setHasVideo] = React.useState<boolean>(true);
   const [hasAudio, setHasAudio] = React.useState<boolean>(true);
   const location = useLocation();
@@ -52,6 +57,8 @@ export const MeetingProvider: React.FC = ({ children }) => {
         setVideo,
         audio,
         setAudio,
+        screen,
+        setScreen,
         hasVideo,
         hasAudio,
       }}

@@ -95,34 +95,24 @@ const MeetingPage = () => {
     });
 
     serverRef.current.on("ProcessAnswer", (connectionId, answerSDP) => {
-      // dd("ProcessAnswer", connectionId);
-      // console.log(sdpTransform.parse(answerSDP));
       userSessionsRef.current[connectionId].onProcessAnswer(
         connectionId,
         answerSDP
       );
     });
 
-    serverRef?.current.on("AddCandidate", (connectionId, candidate) => {
+    serverRef.current.on("AddCandidate", (connectionId, candidate) => {
       userSessionsRef.current[connectionId].onAddCandidate(
         connectionId,
         candidate
       );
     });
 
-    serverRef?.current.on("NewOfferCreated", (connectionId, answerSDP) => {
-      // dd("NewOfferCreated", connectionId);
-      // console.log(sdpTransform.parse(answerSDP));
+    serverRef.current.on("NewOfferCreated", (connectionId, answerSDP) => {
       userSessionsRef.current[connectionId].onNewOfferCreated(
         connectionId,
         answerSDP
       );
-    });
-
-    serverRef.current.start().catch((error?: any) => {
-      if (error?.statusCode === 401) {
-        alert("Unauthorized.");
-      }
     });
 
     return () => {
@@ -130,9 +120,21 @@ const MeetingPage = () => {
     };
   }, []);
 
+  const onStart = () => {
+    serverRef.current?.start().catch((error?: any) => {
+      if (error?.statusCode === 401) {
+        alert("Unauthorized.");
+      }
+    });
+  };
+
+  const onStop = () => {
+    serverRef.current?.stop();
+  };
+
   return (
     <div>
-      <HeaderTools onClose={() => serverRef.current?.stop()} />
+      <HeaderTools onStart={onStart} onStop={onStop} />
       <div>
         {userSessions.map((userSession, key) => {
           return (

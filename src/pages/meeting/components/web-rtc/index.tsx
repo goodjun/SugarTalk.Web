@@ -4,6 +4,7 @@ import { MeetingContext } from "../../context";
 import * as styles from "./index.styles";
 import * as sdpTransform from "sdp-transform";
 import { dd } from "../../../../utils/debug";
+import { useUpdateEffect } from "ahooks";
 
 interface IWebRTC {
   id: string;
@@ -27,15 +28,83 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
 
   const rtcPeerConnection = React.useRef<RTCPeerConnection>();
 
-  const { video, audio, hasVideo, hasAudio } = React.useContext(MeetingContext);
+  const { audio, video, setVideo, screen, setScreen } =
+    React.useContext(MeetingContext);
+
+  // 重新创建发送端
+  const recreatePeerSendonly = async (stream: MediaStream) => {
+    if (videoRef.current?.srcObject) {
+      videoRef.current?.srcObject
+        .getTracks()
+        .forEach((track: MediaStreamTrack) => {
+          track.stop();
+        });
+    }
+
+    const peer = new RTCPeerConnection();
+
+    stream.getTracks().forEach((track: MediaStreamTrack) => {
+      peer.addTrack(track, stream);
+    });
+
+    videoRef.current.srcObject = stream;
+
+    rtcPeerConnection.current = peer;
+
+    const offer = await rtcPeerConnection?.current?.createOffer({
+      offerToReceiveAudio: false,
+      offerToReceiveVideo: false,
+    });
+
+    rtcPeerConnection?.current?.setLocalDescription(offer);
+
+    serverRef?.current?.invoke("ProcessOfferAsync", id, offer?.sdp, true);
+  };
+
+  // 恢复发送端
+  const resumePeerSendonly = async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: true,
+    });
+
+    await recreatePeerSendonly(stream);
+  };
+
+  // 打开摄像头
+  // todo: 改为ref调用
+  const onStartVideo = async () => {
+    if (!video) {
+      await resumePeerSendonly();
+    } else {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true,
+      });
+      if (stream) {
+        await recreatePeerSendonly(stream);
+      }
+    }
+  };
+
+  // 共享屏幕
+  // todo: 改为ref调用
+  const onShareScreen = async () => {
+    if (!screen) {
+      await resumePeerSendonly();
+    } else {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+      if (stream) {
+        await recreatePeerSendonly(stream);
+      }
+    }
+  };
 
   const onProcessAnswer = (connectionId: string, answerSDP: string) => {
-    dd(
-      "onProcessAnswer",
-      connectionId,
-      sdpTransform.parse(answerSDP).media[0].direction
-    );
-
+    dd("onProcessAnswer", connectionId, isSelf);
     rtcPeerConnection?.current?.setRemoteDescription(
       new RTCSessionDescription({ type: "answer", sdp: answerSDP })
     );
@@ -48,12 +117,7 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
 
   const onNewOfferCreated = (connectionId: string, answerSDP: string) => {
     if (!isSelf) {
-      dd(
-        "onNewOfferCreated",
-        connectionId,
-        sdpTransform.parse(answerSDP).media[0].direction
-      );
-
+      dd("onNewOfferCreated", connectionId, isSelf);
       createPeerRecvonly();
     }
   };
@@ -64,49 +128,35 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
     onNewOfferCreated,
   }));
 
-  const recreatePeerConnection = async () => {
-    if (videoRef.current?.srcObject) {
-      videoRef.current?.srcObject
-        .getTracks()
-        .forEach((track: MediaStreamTrack) => {
-          track.stop();
-        });
-    }
-
+  // 创建发送端
+  const createPeerSendonly = async () => {
     const peer = new RTCPeerConnection();
 
-    const baseStream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: true,
+    peer.addEventListener("icecandidate", (candidate) => {
+      serverRef?.current?.invoke("ProcessCandidateAsync", id, candidate);
     });
 
-    baseStream.getTracks().forEach((track: MediaStreamTrack) => {
-      peer.addTrack(track, baseStream);
+    const localStream = await navigator.mediaDevices.getUserMedia({
+      video: false,
+      audio: true,
     });
 
-    videoRef.current.srcObject = baseStream;
+    videoRef.current.srcObject = localStream;
 
-    rtcPeerConnection.current = peer;
+    localStream.getTracks().forEach((track: MediaStreamTrack) => {
+      peer.addTrack(track, localStream);
+    });
 
-    const offer = await rtcPeerConnection?.current?.createOffer({
+    const offer = await peer.createOffer({
       offerToReceiveAudio: false,
       offerToReceiveVideo: false,
     });
 
-    rtcPeerConnection?.current?.setLocalDescription(offer);
+    peer.setLocalDescription(offer);
 
-    serverRef?.current?.invoke("ProcessOfferAsync", id, offer?.sdp);
+    rtcPeerConnection.current = peer;
 
-    return rtcPeerConnection;
-  };
-
-  // 创建发送端
-  const createPeerSendonly = async () => {
-    recreatePeerConnection().then((peer) => {
-      peer.current?.addEventListener("icecandidate", (candidate) => {
-        serverRef?.current?.invoke("ProcessCandidateAsync", id, candidate);
-      });
-    });
+    serverRef?.current?.invoke("ProcessOfferAsync", id, offer.sdp, true);
   };
 
   // 创建接受端
@@ -123,7 +173,7 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
     });
 
     const offer = await peer.createOffer({
-      offerToReceiveAudio: false,
+      offerToReceiveAudio: true,
       offerToReceiveVideo: true,
     });
 
@@ -131,7 +181,7 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
 
     rtcPeerConnection.current = peer;
 
-    serverRef?.current?.invoke("ProcessOfferAsync", id, offer.sdp);
+    serverRef?.current?.invoke("ProcessOfferAsync", id, offer.sdp, false);
   };
 
   React.useEffect(() => {
@@ -141,6 +191,34 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
       createPeerRecvonly();
     }
   }, []);
+
+  React.useEffect(() => {
+    if (isSelf && videoRef.current?.srcObject) {
+      videoRef.current.srcObject
+        .getAudioTracks()
+        .forEach((track: MediaStreamTrack) => {
+          track.enabled = audio;
+        });
+    }
+  }, [audio]);
+
+  useUpdateEffect(() => {
+    if (isSelf) {
+      const onStartVideoAsyn = async () => {
+        await onStartVideo();
+      };
+      onStartVideoAsyn();
+    }
+  }, [video]);
+
+  useUpdateEffect(() => {
+    if (isSelf) {
+      const onShareScreenAsync = async () => {
+        await onShareScreen().catch(() => setScreen(false));
+      };
+      onShareScreenAsync();
+    }
+  }, [screen]);
 
   return (
     <div style={styles.videoContainer}>
@@ -164,6 +242,16 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
       )}
       <div style={styles.userName}>
         {userName} - {id}
+        {/* {isSelf && (
+          <div>
+            <button type="button" onClick={() => onStartVideo()}>
+              {video ? "stop video" : "start video"}
+            </button>
+            <button type="button" onClick={() => onShareScreen()}>
+              {screen ? "stop share screen" : "start share screen"}
+            </button>
+          </div>
+        )} */}
       </div>
     </div>
   );

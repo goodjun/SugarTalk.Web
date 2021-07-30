@@ -15,7 +15,7 @@ export const userName: CSSProperties = {
   backgroundColor: "#0F1012",
   color: "#fff",
   padding: "3px 0px",
-  userSelect: "none",
+  // userSelect: "none",
   fontSize: "12px",
   textAlign: "center",
 };

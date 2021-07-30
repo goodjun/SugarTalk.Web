@@ -3,13 +3,19 @@ import { MeetingContext } from "../../context";
 import * as styles from "./index.styles";
 
 interface IHeaderToolsProps {
-  onClose: () => void;
+  onStart: () => void;
+  onStop: () => void;
 }
 
 export const HeaderTools = (props: IHeaderToolsProps) => {
-  const { video, setVideo, audio, setAudio } = React.useContext(MeetingContext);
+  const { video, setVideo, audio, setAudio, screen, setScreen } =
+    React.useContext(MeetingContext);
 
-  const { onClose } = props;
+  const { onStart, onStop } = props;
+
+  const onNewWindow = () => {
+    window.open(window.location.href, "_blank");
+  };
 
   return (
     <div style={styles.headerToolContainer}>
@@ -19,8 +25,17 @@ export const HeaderTools = (props: IHeaderToolsProps) => {
       <button style={styles.button} onClick={() => setVideo(!video)}>
         {video ? "stop video" : "start video"}
       </button>
-      <button style={styles.button} onClick={() => onClose()}>
+      <button style={styles.button} onClick={() => setScreen(!screen)}>
+        {screen ? "stop share screen" : "share screen"}
+      </button>
+      <button style={styles.button} onClick={() => onStart()}>
+        start
+      </button>
+      <button style={styles.button} onClick={() => onStop()}>
         close
+      </button>
+      <button style={styles.button} onClick={() => onNewWindow()}>
+        new window
       </button>
     </div>
   );
