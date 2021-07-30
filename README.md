@@ -2,6 +2,20 @@
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
+## 禁用热加载
+
+暂时没有参数支持，只能临时改包文件
+
+```js
+// hot设置为false
+// node_modules/react-scripts/config/webpackDevServer.config.js
+hot: false;
+
+// 注释HotModuleReplacementPlugin
+// node_modules/react-scripts/config/webpack.config.js
+// isEnvDevelopment && new webpack.HotModuleReplacementPlugin();
+```
+
 ## Available Scripts
 
 In the project directory, you can run:
