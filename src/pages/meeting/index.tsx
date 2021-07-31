@@ -132,9 +132,34 @@ const MeetingPage = () => {
     serverRef.current?.stop();
   };
 
+  const tiggerVideo = () => {
+    const selfSession = userSessions.find(
+      (userSession) => userSession.isSelf === true
+    );
+
+    if (selfSession) {
+      userSessionsRef.current[selfSession.id].tiggerVideo();
+    }
+  };
+
+  const tiggerScreen = () => {
+    const selfSession = userSessions.find(
+      (userSession) => userSession.isSelf === true
+    );
+
+    if (selfSession) {
+      userSessionsRef.current[selfSession.id].tiggerScreen();
+    }
+  };
+
   return (
     <div>
-      <HeaderTools onStart={onStart} onStop={onStop} />
+      <HeaderTools
+        onStart={onStart}
+        onStop={onStop}
+        tiggerVideo={tiggerVideo}
+        tiggerScreen={tiggerScreen}
+      />
       <div>
         {userSessions.map((userSession, key) => {
           return (

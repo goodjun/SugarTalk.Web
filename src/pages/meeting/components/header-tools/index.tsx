@@ -5,13 +5,15 @@ import * as styles from "./index.styles";
 interface IHeaderToolsProps {
   onStart: () => void;
   onStop: () => void;
+  tiggerVideo: () => void;
+  tiggerScreen: () => void;
 }
 
 export const HeaderTools = (props: IHeaderToolsProps) => {
   const { video, setVideo, audio, setAudio, screen, setScreen } =
     React.useContext(MeetingContext);
 
-  const { onStart, onStop } = props;
+  const { onStart, onStop, tiggerVideo, tiggerScreen } = props;
 
   const onNewWindow = () => {
     window.open(window.location.href, "_blank");
@@ -22,10 +24,10 @@ export const HeaderTools = (props: IHeaderToolsProps) => {
       <button style={styles.button} onClick={() => setAudio(!audio)}>
         {audio ? "mute" : "unmute"}
       </button>
-      <button style={styles.button} onClick={() => setVideo(!video)}>
+      <button style={styles.button} onClick={() => tiggerVideo()}>
         {video ? "stop video" : "start video"}
       </button>
-      <button style={styles.button} onClick={() => setScreen(!screen)}>
+      <button style={styles.button} onClick={() => tiggerScreen()}>
         {screen ? "stop share screen" : "share screen"}
       </button>
       <button style={styles.button} onClick={() => onStart()}>

@@ -4,7 +4,7 @@ import { MeetingContext } from "../../context";
 import * as styles from "./index.styles";
 import * as sdpTransform from "sdp-transform";
 import { dd } from "../../../../utils/debug";
-import { useUpdateEffect } from "ahooks";
+import { useLockFn, useUpdateEffect } from "ahooks";
 
 interface IWebRTC {
   id: string;
@@ -17,6 +17,8 @@ export interface IWebRTCRef {
   onProcessAnswer: (connectionId: string, answerSDP: string) => void;
   onAddCandidate: (connectionId: string, candidate: string) => void;
   onNewOfferCreated: (connectionId: string, answerSDP: string) => void;
+  tiggerVideo: () => void;
+  tiggerScreen: () => void;
 }
 
 export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
@@ -56,9 +58,9 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
       offerToReceiveVideo: false,
     });
 
-    rtcPeerConnection?.current?.setLocalDescription(offer);
+    await rtcPeerConnection?.current?.setLocalDescription(offer);
 
-    serverRef?.current?.invoke("ProcessOfferAsync", id, offer?.sdp, true);
+    await serverRef?.current?.invoke("ProcessOfferAsync", id, offer?.sdp, true);
   };
 
   // 恢复发送端
@@ -71,11 +73,11 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
     await recreatePeerSendonly(stream);
   };
 
-  // 打开摄像头
-  // todo: 改为ref调用
-  const onStartVideo = async () => {
-    if (!video) {
+  // 摄像头开关
+  const tiggerVideo = useLockFn(async () => {
+    if (video) {
       await resumePeerSendonly();
+      setVideo(false);
     } else {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
@@ -83,15 +85,17 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
       });
       if (stream) {
         await recreatePeerSendonly(stream);
+        setVideo(true);
+        setScreen(false);
       }
     }
-  };
+  });
 
-  // 共享屏幕
-  // todo: 改为ref调用
-  const onShareScreen = async () => {
-    if (!screen) {
+  // 共享屏幕开关
+  const tiggerScreen = useLockFn(async () => {
+    if (screen) {
       await resumePeerSendonly();
+      setScreen(false);
     } else {
       const stream = await navigator.mediaDevices.getDisplayMedia({
         video: true,
@@ -99,9 +103,11 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
       });
       if (stream) {
         await recreatePeerSendonly(stream);
+        setScreen(true);
+        setVideo(false);
       }
     }
-  };
+  });
 
   const onProcessAnswer = (connectionId: string, answerSDP: string) => {
     dd("onProcessAnswer", connectionId, isSelf);
@@ -126,6 +132,8 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
     onProcessAnswer,
     onAddCandidate,
     onNewOfferCreated,
+    tiggerVideo,
+    tiggerScreen,
   }));
 
   // 创建发送端
@@ -202,24 +210,6 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
     }
   }, [audio]);
 
-  useUpdateEffect(() => {
-    if (isSelf) {
-      const onStartVideoAsyn = async () => {
-        await onStartVideo();
-      };
-      onStartVideoAsyn();
-    }
-  }, [video]);
-
-  useUpdateEffect(() => {
-    if (isSelf) {
-      const onShareScreenAsync = async () => {
-        await onShareScreen().catch(() => setScreen(false));
-      };
-      onShareScreenAsync();
-    }
-  }, [screen]);
-
   return (
     <div style={styles.videoContainer}>
       <video
@@ -242,16 +232,6 @@ export const WebRTC = React.forwardRef<IWebRTCRef, IWebRTC>((props, ref) => {
       )}
       <div style={styles.userName}>
         {userName} - {id}
-        {/* {isSelf && (
-          <div>
-            <button type="button" onClick={() => onStartVideo()}>
-              {video ? "stop video" : "start video"}
-            </button>
-            <button type="button" onClick={() => onShareScreen()}>
-              {screen ? "stop share screen" : "start share screen"}
-            </button>
-          </div>
-        )} */}
       </div>
     </div>
   );
